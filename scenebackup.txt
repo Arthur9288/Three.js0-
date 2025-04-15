@@ -1,0 +1,195 @@
+import * as THREE from 'https://unpkg.com/three/build/three.module.js';
+
+export function createScene() {
+    const gameWindow = document.getElementById('render-target');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x7ec0ff); // Light blue background
+    scene.fog = new THREE.Fog(0x7ec0ff, 10, 50); // Add fog effect
+
+    const camera = new THREE.PerspectiveCamera(
+        75,
+        gameWindow.clientWidth / gameWindow.clientHeight,
+        0.1,
+        1000
+    );
+    camera.position.z = 8; // Set camera position
+
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(gameWindow.offsetWidth, gameWindow.offsetHeight);
+    gameWindow.appendChild(renderer.domElement);
+
+    // Add a rotating cube
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // Add floating clouds
+    const cloudGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const cloudMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    const clouds = [];
+// Enable shadows in the renderer
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Use soft shadows for a smoother look
+
+// Add a directional light to cast shadows
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10, 20, 10); // Position the light
+light.castShadow = true; // Enable shadow casting
+light.shadow.mapSize.width = 1024; // Shadow map resolution
+light.shadow.mapSize.height = 1024;
+light.shadow.camera.near = 0.5;
+light.shadow.camera.far = 50;
+scene.add(light);
+
+// Add ambient light to brighten the scene and soften shadows
+const ambientLight = new THREE.AmbientLight(0xffffff, 1.5); // Add ambient light with lower intensity
+scene.add(ambientLight);
+
+// Add a ground plane to receive shadows
+const groundGeometry = new THREE.PlaneGeometry(50, 50);
+const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x87ceeb });
+const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+ground.rotation.x = -Math.PI / 2; // Rotate to make it horizontal
+ground.position.y = -5; // Position below the clouds
+ground.receiveShadow = true; // Enable shadow receiving
+//scene.add(ground);
+
+// Function to deform sphere geometry for a more organic look
+function deformGeometry(geometry) {
+    const positionAttribute = geometry.attributes.position;
+    const vertexCount = positionAttribute.count;
+
+    for (let i = 0; i < vertexCount; i++) {
+        const x = positionAttribute.getX(i);
+        const y = positionAttribute.getY(i);
+        const z = positionAttribute.getZ(i);
+
+        // Add random noise to each vertex
+        const noise = (Math.random() - 0.5) * 0.3; // Adjust noise intensity
+        positionAttribute.setXYZ(i, x + noise, y + noise, z + noise);
+    }
+
+    geometry.attributes.position.needsUpdate = true; // Update the geometry
+}
+// Update cloud generation to cast shadows
+for (let i = 0; i < 10; i++) {
+    const cloudGroup = new THREE.Group(); // Group to hold multiple spheres for each cloud
+    const cloudMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xffffff,  
+        transparent: true, // Enable transparency 
+        opacity: 0.8, // Set opacity for a soft cloud effect
+        shininess: 10,  // Add shininess for a glossy effect
+        });
+
+    // Create 5-10 spheres per cloud
+    const sphereCount = Math.floor(Math.random() * 9) + 12;
+    for (let j = 0; j < sphereCount; j++) {
+        const cloudGeometry = new THREE.SphereGeometry(
+            Math.random() * 0.6 + 0.4, // Random radius between 0.4 and 1.0
+            32,
+            32
+        );
+        const cloudPart = new THREE.Mesh(cloudGeometry, cloudMaterial);
+
+        // Randomly position each sphere within the cloud group
+        cloudPart.position.set(
+            Math.random() * 2 - 1, // Random x offset
+            Math.random() * 1 - 1, // Random y offset
+            Math.random() * 0.5 - 0.25 // Random z offset
+        );
+
+        cloudPart.castShadow = true; // Enable shadow casting for each sphere
+        cloudGroup.add(cloudPart);
+    }
+
+    // Position the entire cloud group in the scene
+    cloudGroup.position.set(
+        Math.random() * 15 - 10, // Random x position
+        Math.random() * 10 - 2,   // Random y position
+        Math.random() * 7 - 1      // Random z position
+    );
+
+    scene.add(cloudGroup);
+    clouds.push(cloudGroup);
+}
+    // Add a simple rocket
+    const rocketGeometry = new THREE.CylinderGeometry(0.2, 0.5, 2, 32);
+    const rocketMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const rocket = new THREE.Mesh(rocketGeometry, rocketMaterial);
+    rocket.position.set(3, -2, 0);
+    //scene.add(rocket);
+
+    // Add rocket fins
+    const finGeometry = new THREE.BoxGeometry(0.2, 0.5, 0.2);
+    const finMaterial = new THREE.MeshBasicMaterial({ color: 0x101010 });
+    const fin1 = new THREE.Mesh(finGeometry, finMaterial);
+    fin1.position.set(-0.3, -2.5, 0);
+    //rocket.add(fin1);
+
+    const fin2 = fin1.clone();
+    fin2.position.set(0.3, -2.5, 0);
+    //rocket.add(fin2);
+    const keys = {};
+
+// Track key presses
+window.addEventListener('keydown', (event) => {
+    keys[event.key] = true;
+});
+
+window.addEventListener('keyup', (event) => {
+    keys[event.key] = false;
+});
+
+    // Animation loop
+    function draw() {
+       // Rotate the cube
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.01;
+
+    // Move cube based on keys
+    if (keys['ArrowUp']) cube.position.y += 0.05; // Move up
+    if (keys['ArrowDown']) cube.position.y -= 0.05; // Move down
+    if (keys['ArrowLeft']) cube.position.x -= 0.05; // Move left
+    if (keys['ArrowRight']) cube.position.x += 0.05; // Move right
+    if (keys['w']) cube.position.z -= 0.05; // Move forward
+    if (keys['s']) cube.position.z += 0.05; // Move backward
+
+    // Move clouds
+    clouds.forEach(cloud => {
+        cloud.position.x += 0.01;
+        if (cloud.position.x > 10) {
+            cloud.position.x = -10;
+        }
+        });
+
+        // Move the rocket up and down
+        rocket.position.y = Math.sin(Date.now() * 0.002) * 2 - 2;
+
+        // Render the scene
+        renderer.render(scene, camera);
+    }
+
+    function start() {
+        renderer.setAnimationLoop(draw);
+    }
+
+    function stop() {
+        renderer.setAnimationLoop(null);
+    }
+
+    // Track key presses
+window.addEventListener('keydown', (event) => {
+    keys[event.key] = true;
+});
+
+window.addEventListener('keyup', (event) => {
+    keys[event.key] = false;
+});
+
+
+    return {
+        start,
+        stop,
+    };
+}
